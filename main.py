@@ -41,7 +41,7 @@ def main():
 
     while True:
         print("Continue with Enter ……")
-        title = "用 j/k 键选择菜单（方向键暂不可用），Enter/Return 以选中。"
+        title = "用 j/k 键选择菜单（方向键也许可用在Windows 11, Linux发行版），Enter/Return 以选中。"
         input()
 
         optns = [
@@ -314,19 +314,31 @@ def main():
                         console,
                     )
                     context = json.loads(package.get_text(f"{fpath}/config.json"))
-                    with open(f"{fpath}/config.json",'w', encoding='utf-8') as f:
-                        tmp = json.dumps({"leftStartAddress":leftaddr,"rightStartAddress":context["rightStartAddress"],"ideVersion":ROPIDE_VERSION})
+                    with open(f"{fpath}/config.json", "w", encoding="utf-8") as f:
+                        tmp = json.dumps(
+                            {
+                                "leftStartAddress": leftaddr,
+                                "rightStartAddress": context["rightStartAddress"],
+                                "ideVersion": ROPIDE_VERSION,
+                            }
+                        )
                         f.write(tmp)
                         f.close()
-                
+
                 elif ans.lower() == "r":
                     rightaddr = _prompt_address(
                         "[black on cyan bold] 输入右侧地址（e.g. D710） [/black on cyan bold][cyan][/cyan]",
                         console,
                     )
                     context = json.loads(package.get_text(f"{fpath}/config.json"))
-                    with open(f"{fpath}/config.json",'w', encoding='utf-8') as f:
-                        tmp = json.dumps({"leftStartAddress":context["leftStartAddress"],"rightStartAddress":rightaddr,"ideVersion":ROPIDE_VERSION})
+                    with open(f"{fpath}/config.json", "w", encoding="utf-8") as f:
+                        tmp = json.dumps(
+                            {
+                                "leftStartAddress": context["leftStartAddress"],
+                                "rightStartAddress": rightaddr,
+                                "ideVersion": ROPIDE_VERSION,
+                            }
+                        )
                         f.write(tmp)
                         f.close()
                 elif ans.lower() == "g":
@@ -346,9 +358,11 @@ def main():
                     )
                     desc = input()
                     context = json.loads(package.get_text(f"{fpath}/gadgets.json"))
-                    with open(f"{fpath}/gadgets.json",'w', encoding='utf-8') as f:
-                        context.append({"name":name,"addr":addr,"desc":desc,"tags":[]})
-                        f.write(json.dumps(context,ensure_ascii=False))
+                    with open(f"{fpath}/gadgets.json", "w", encoding="utf-8") as f:
+                        context.append(
+                            {"name": name, "addr": addr, "desc": desc, "tags": []}
+                        )
+                        f.write(json.dumps(context, ensure_ascii=False))
                 elif ans.lower() == "s":
                     gadgets = Table(title="[black on green] gadgets [/black on green]")
                     gadgets.add_column("名称")
@@ -358,7 +372,9 @@ def main():
                     # 过于先进，无法展示
                     try:
                         raw_gadgets = package.get_text(f"{fpath}/gadgets.json")
-                        gadgets_list = json.loads(raw_gadgets) if raw_gadgets.strip() else []
+                        gadgets_list = (
+                            json.loads(raw_gadgets) if raw_gadgets.strip() else []
+                        )
                     except FileNotFoundError:
                         console.print(
                             f"[black on red] ERROR [/black on red] 找不到 {fpath}/gadgets.json。"
@@ -518,6 +534,7 @@ def main():
                 f.close()
         elif idx == 5:
             return 0
+
 
 if __name__ == "__main__":
     main()
