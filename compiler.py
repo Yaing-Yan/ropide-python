@@ -5,9 +5,10 @@ import argparse as arg
 import re
 import package
 
+console = Console()
+
 
 def loadfile():
-    console = Console()
     console.print(
         "[black bold on cyan] 输入ROP文件路径喵 [/black bold on cyan][cyan][/cyan]",
         end="",
@@ -149,35 +150,35 @@ def compiler(context):
             if ch == "$":
                 semicolon = current_line.find(";", i)
                 if semicolon == -1:
-                    print(f"[ERROR] 行{line}: 常量定义缺少分号")
+                    console.print(f"[black on red] ERROR [/black on red] 行{line}: 常量定义缺少分号")
                     error_count += 1
                     break
                 body = current_line[i + 1 : semicolon].replace(" ", "")
                 parts = body.split("=")
                 if len(parts) != 2:
-                    print(f"[ERROR] 行{line}: 常量定义格式错误")
+                    console.print(f"[black on red] ERROR [/black on red] 行{line}: 常量定义格式错误")
                     error_count += 1
                     i = semicolon + 1
                     continue
                 name = parts[0]
                 if not name:
-                    print(f"[ERROR] 行{line}: 常量名不能为空")
+                    console.print(f"[black on red] ERROR [/black on red] 行{line}: 常量名不能为空")
                     error_count += 1
                     i = semicolon + 1
                     continue
                 if name in constants:
-                    print(f"[ERROR] 行{line}: 常量 '{name}' 重复定义")
+                    console.print(f"[black on red] ERROR [/black on red] 行{line}: 常量 '{name}' 重复定义")
                     error_count += 1
                     i = semicolon + 1
                     continue
                 val_str = parts[1]
                 if not re.match(r"^-?[0-9a-fA-F]+$", val_str):
-                    print(f"[ERROR] 行{line}: 常量值 '{val_str}' 非法")
+                    console.print(f"[black on red] ERROR [/black on red] 行{line}: 常量值 '{val_str}' 非法")
                     error_count += 1
                 else:
                     int_val = int(val_str, 16)
                     if int_val > 0xFFFF or int_val < -0x8000:
-                        print(f"[ERROR] 行{line}: 常量值 '{val_str}' 超出范围")
+                        console.print(f"[black on red] ERROR [/black on red] 行{line}: 常量值 '{val_str}' 超出范围")
                         error_count += 1
                     else:
                         if int_val < 0:
@@ -189,7 +190,7 @@ def compiler(context):
             if ch == "#":
                 semicolon = current_line.find(";", i)
                 if semicolon == -1:
-                    print(f"[ERROR] 行{line}: gadget 引用缺少分号")
+                    console.print(f"[black on red] ERROR [/black on red] 行{line}: gadget 引用缺少分号")
                     error_count += 1
                     break
                 name_body = current_line[i + 1 : semicolon]
@@ -199,7 +200,7 @@ def compiler(context):
                     name_body = name_body[1:]
                 found = next((g for g in gadgets if g.get("name") == name_body), None)
                 if found is None:
-                    print(f"[ERROR] 行{line}: gadget '{name_body}' 未找到")
+                    console.print(f"[black on red] ERROR [/black on red] 行{line}: gadget '{name_body}' 未找到")
                     error_count += 1
                 else:
                     encoded = encode_gadget_addr(found.get("addr", ""), allow_00)
@@ -211,13 +212,13 @@ def compiler(context):
             if ch == "[":
                 bracket = current_line.find("]", i)
                 if bracket == -1:
-                    print(f"[ERROR] 行{line}: 方括号未闭合")
+                    console.print(f"[black on red] ERROR [/black on red] 行{line}: 方括号未闭合")
                     error_count += 1
                     break
                 inner = current_line[i + 1 : bracket]
                 result = eval_expression(inner, constants, allow_deferred=True)
                 if result["error"]:
-                    print(f"[ERROR] 行{line}: 表达式 '[{inner}]' 无效")
+                    console.print(f"[black on red] ERROR [/black on red] 行{line}: 表达式 '[{inner}]' 无效")
                     error_count += 1
                 elif result["deferred"]:
                     # 前向引用: 仅记录位置, 不加占位符 (锚点计算依赖精确的hex_chars长度)
@@ -239,7 +240,7 @@ def compiler(context):
             if ch == "<":
                 close = current_line.find(">", i)
                 if close == -1:
-                    print(f"[ERROR] 行{line}: 尖括号未闭合")
+                    console.print(f"[black on red] ERROR [/black on red] 行{line}: 尖括号未闭合")
                     error_count += 1
                     break
                 anchor_body = current_line[i + 1 : close]
@@ -248,10 +249,10 @@ def compiler(context):
                     use_left = True
                     anchor_body = anchor_body[1:]
                 if not anchor_body:
-                    print(f"[ERROR] 行{line}: 锚点名不能为空")
+                    console.print(f"[black on red] ERROR [/black on red] 行{line}: 锚点名不能为空")
                     error_count += 1
                 elif anchor_body in constants:
-                    print(f"[ERROR] 行{line}: 锚点名 '{anchor_body}' 重复")
+                    console.print(f"[black on red] ERROR [/black on red] 行{line}: 锚点名 '{anchor_body}' 重复")
                     error_count += 1
                 else:
                     # 计算当前真实偏移: 已产生字节数 + 前面已排队的延迟块字节数
@@ -278,8 +279,8 @@ def compiler(context):
     for patch in deferred_patches:
         result = eval_expression(patch["expression"], constants, allow_deferred=False)
         if result["error"]:
-            print(
-                f"[ERROR] 行{patch['line_no']}: 延迟表达式 '[{patch['expression']}]' 最终求值失败"
+            console.print(
+                f"[black on red] ERROR [/black on red] 行{patch['line_no']}: 延迟表达式 '[{patch['expression']}]' 最终求值失败"
             )
             error_count += 1
             continue
@@ -306,7 +307,6 @@ def compiler(context):
 
 
 def main():
-    console = Console()
     prs = arg.ArgumentParser(
         description="根据贴吧@wlyibo制作的RopIDE，用Python移植编译程序，compiler函数用Vibe-Coding转写。（喵）"
     )
