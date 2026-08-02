@@ -19,6 +19,14 @@ pip install rich hexdump2 pick pyperclip
 
 复制到剪贴板功能依赖系统剪贴板工具（Linux 需要 `xclip` 或 `xsel`，macOS 自带 `pbcopy`，Windows 自带）。缺少时会提示"复制失败"!!!
 
+Windows 用户需额外安装 curses 支持（`pick` 菜单依赖）：
+
+```bash
+pip install windows-curses
+```
+
+所有读写文件统一使用 UTF-8 编码；读取时会自动兼容旧版本在中文 Windows 上写出的 GBK 文件。
+
 ## 使用
 
 ```bash

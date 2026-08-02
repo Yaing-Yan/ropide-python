@@ -3,6 +3,7 @@ import os
 from rich.console import Console
 import argparse as arg
 import re
+import package
 
 
 def loadfile():
@@ -12,16 +13,13 @@ def loadfile():
         end="",
     )
     try:
-        with open(input(), "r") as f:
-            try:
-                context = json.loads(f.read())
-            except:
-                console.print(
-                    "\n[black bold on red] ERROR [/black bold on red] 这貌似[b red]不是[/b red]一个ROP（json-based）文件喵……请重新上传！"
-                )
-                context = loadfile()
-            f.close()
-    except:
+        context = json.loads(package.get_text(input()))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        console.print(
+            "\n[black bold on red] ERROR [/black bold on red] 这貌似[b red]不是[/b red]一个ROP（json-based）文件喵……请重新上传！"
+        )
+        context = loadfile()
+    except (FileNotFoundError, PermissionError, OSError):
         console.print(
             "\n[black bold on red] ERROR [/black bold on red] 文件上传失败喵……请重新上传！"
         )
@@ -318,16 +316,13 @@ def main():
         context = loadfile()
     else:
         try:
-            with open(args.file, "r") as f:
-                try:
-                    context = json.loads(f.read())
-                except:
-                    console.print(
-                        "\n[black bold on red] ERROR [/black bold on red] 这貌似[b red]不是[/b red]一个ROP（json-based）文件喵……请重新上传！"
-                    )
-                    os._exit(0)
-                f.close()
-        except:
+            context = json.loads(package.get_text(args.file))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            console.print(
+                "\n[black bold on red] ERROR [/black bold on red] 这貌似[b red]不是[/b red]一个ROP（json-based）文件喵……请重新上传！"
+            )
+            os._exit(0)
+        except (FileNotFoundError, PermissionError, OSError):
             console.print(
                 "\n[black bold on red] ERROR [/black bold on red] 文件上传失败喵……请重新上传！"
             )

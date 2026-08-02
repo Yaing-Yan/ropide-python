@@ -41,7 +41,7 @@ def main():
 
     while True:
         print("Continue with Enter ……")
-        title = "用上下键选择一个菜单，Enter/Return以选中。"
+        title = "用 j/k 键选择菜单（方向键暂不可用），Enter/Return 以选中。"
         input()
 
         optns = [
@@ -83,7 +83,7 @@ def main():
                 "使用空gadgets",
             ]
             optn, idx = p.pick(options=optns, indicator="", title=title)
-            with open(f"{fpath}/main.rin", "w") as f:
+            with open(f"{fpath}/main.rin", "w", encoding="utf-8") as f:
                 f.write("// main.rin")
                 f.close()
             console.print(
@@ -91,18 +91,14 @@ def main():
             )
             if idx == 0:
                 BASE = Path(__file__).resolve().parent
-                with open(BASE / "gadgets" / "VerF gadgets.json", "r") as f:
-                    gadgets = f.read()
-                    f.close()
-                with open(f"{fpath}/gadgets.json", "w") as f:
+                gadgets = package.get_text(BASE / "gadgets" / "VerF gadgets.json")
+                with open(f"{fpath}/gadgets.json", "w", encoding="utf-8") as f:
                     f.write(gadgets)
                     f.close()
             elif idx == 1:
                 BASE = Path(__file__).resolve().parent
-                with open(BASE / "gadgets" / "VerC gadgets.json", "r") as f:
-                    gadgets = f.read()
-                    f.close()
-                with open(f"{fpath}/gadgets.json", "w") as f:
+                gadgets = package.get_text(BASE / "gadgets" / "VerC gadgets.json")
+                with open(f"{fpath}/gadgets.json", "w", encoding="utf-8") as f:
                     f.write(gadgets)
                     f.close()
             elif idx == 2:
@@ -112,20 +108,18 @@ def main():
                 )
                 gpath = input()
                 try:
-                    with open(gpath, "r") as f:
-                        gadgets = f.read()
-                        f.close()
+                    gadgets = package.get_text(gpath)
                 except:
                     console.print(
                         f"[black on red] ERROR [/black on red] 找不到 {gpath}。"
                     )
                     continue
-                with open(f"{fpath}/gadgets.json", "w") as f:
+                with open(f"{fpath}/gadgets.json", "w", encoding="utf-8") as f:
                     f.write(gadgets)
                     f.close()
 
             else:
-                with open(f"{fpath}/gadgets.json", "w") as f:
+                with open(f"{fpath}/gadgets.json", "w", encoding="utf-8") as f:
                     f.write("[]")
                     f.close()
             console.print(
@@ -139,7 +133,7 @@ def main():
                 "[black on cyan bold] 输入右侧地址（e.g. D710） [/black on cyan bold][cyan][/cyan]",
                 console,
             )
-            with open(f"{fpath}/config.json", "w") as f:
+            with open(f"{fpath}/config.json", "w", encoding="utf-8") as f:
                 f.write(
                     json.dumps(
                         {
@@ -255,9 +249,7 @@ def main():
             )
             fpath = Path(input()).expanduser().resolve()
             try:
-                with open(f"{fpath}/config.json", "r") as f:
-                    config = json.loads(f.read())
-                    f.close()
+                config = json.loads(package.get_text(f"{fpath}/config.json"))
             except FileNotFoundError:
                 console.print(
                     f"[black on red] ERROR [/black on red] 找不到 {fpath}/config.json。"
@@ -286,9 +278,7 @@ def main():
             # gadgets.add_column("标签")
             # 过于先进，无法展示
             try:
-                with open(f"{fpath}/gadgets.json", "r") as f:
-                    raw_gadgets = f.read()
-                    f.close()
+                raw_gadgets = package.get_text(f"{fpath}/gadgets.json")
                 gadgets_list = json.loads(raw_gadgets) if raw_gadgets.strip() else []
             except FileNotFoundError:
                 console.print(
@@ -323,10 +313,8 @@ def main():
                         "[black on cyan bold] 输入左侧地址（e.g. E9E0） [/black on cyan bold][cyan][/cyan]",
                         console,
                     )
-                    with open(f"{fpath}/config.json",'r') as f:
-                        context = json.loads(f.read())
-                        f.close()
-                    with open(f"{fpath}/config.json",'w') as f:
+                    context = json.loads(package.get_text(f"{fpath}/config.json"))
+                    with open(f"{fpath}/config.json",'w', encoding='utf-8') as f:
                         tmp = json.dumps({"leftStartAddress":leftaddr,"rightStartAddress":context["rightStartAddress"],"ideVersion":ROPIDE_VERSION})
                         f.write(tmp)
                         f.close()
@@ -336,10 +324,8 @@ def main():
                         "[black on cyan bold] 输入右侧地址（e.g. D710） [/black on cyan bold][cyan][/cyan]",
                         console,
                     )
-                    with open(f"{fpath}/config.json",'r') as f:
-                        context = json.loads(f.read())
-                        f.close()
-                    with open(f"{fpath}/config.json",'w') as f:
+                    context = json.loads(package.get_text(f"{fpath}/config.json"))
+                    with open(f"{fpath}/config.json",'w', encoding='utf-8') as f:
                         tmp = json.dumps({"leftStartAddress":context["leftStartAddress"],"rightStartAddress":rightaddr,"ideVersion":ROPIDE_VERSION})
                         f.write(tmp)
                         f.close()
@@ -359,9 +345,8 @@ def main():
                         end="",
                     )
                     desc = input()
-                    with open(f"{fpath}/gadgets.json",'r') as f:
-                        context = json.loads(f.read())
-                    with open(f"{fpath}/gadgets.json",'w') as f:
+                    context = json.loads(package.get_text(f"{fpath}/gadgets.json"))
+                    with open(f"{fpath}/gadgets.json",'w', encoding='utf-8') as f:
                         context.append({"name":name,"addr":addr,"desc":desc,"tags":[]})
                         f.write(json.dumps(context,ensure_ascii=False))
                 elif ans.lower() == "s":
@@ -372,9 +357,7 @@ def main():
                     # gadgets.add_column("标签")
                     # 过于先进，无法展示
                     try:
-                        with open(f"{fpath}/gadgets.json", "r") as f:
-                            raw_gadgets = f.read()
-                            f.close()
+                        raw_gadgets = package.get_text(f"{fpath}/gadgets.json")
                         gadgets_list = json.loads(raw_gadgets) if raw_gadgets.strip() else []
                     except FileNotFoundError:
                         console.print(
@@ -409,15 +392,9 @@ def main():
             )
             fpath = Path(input()).expanduser().resolve()
             try:
-                with open(f"{fpath}/main.rin", "r") as f:
-                    context = f.read()
-                    f.close()
-                with open(f"{fpath}/gadgets.json", "r", encoding="utf-8") as f:
-                    raw_gadgets = f.read()
-                    f.close()
-                with open(f"{fpath}/config.json", "r", encoding="utf-8") as f:
-                    tmp = json.loads(f.read())
-                    f.close()
+                context = package.get_text(f"{fpath}/main.rin")
+                raw_gadgets = package.get_text(f"{fpath}/gadgets.json")
+                tmp = json.loads(package.get_text(f"{fpath}/config.json"))
             except FileNotFoundError:
                 console.print(
                     f"[black on red] ERROR [/black on red] {fpath} 缺少 main.rin / gadgets.json / config.json。"
@@ -453,7 +430,7 @@ def main():
                 )
                 continue
             try:
-                with open(f"{fpath}/output.rop", "w") as f:
+                with open(f"{fpath}/output.rop", "w", encoding="utf-8") as f:
                     f.write(
                         package.package(
                             context, gadgets, leftaddr, rightaddr, ROPIDE_VERSION
@@ -521,14 +498,14 @@ def main():
                 )
                 continue
             console.print(f"[black on white] LOG [/black on white] 成功创建 {fpath}。")
-            with open(f"{fpath}/main.rin", "w") as f:
+            with open(f"{fpath}/main.rin", "w", encoding="utf-8") as f:
                 f.write(context["input"])
                 f.close()
-            with open(f"{fpath}/gadgets.json", "w") as f:
+            with open(f"{fpath}/gadgets.json", "w", encoding="utf-8") as f:
                 f.write(json.dumps(context["gadgets"], ensure_ascii=False))
                 console.print(json.dumps(context["gadgets"], ensure_ascii=False))
                 f.close()
-            with open(f"{fpath}/config.json", "w") as f:
+            with open(f"{fpath}/config.json", "w", encoding="utf-8") as f:
                 f.write(
                     json.dumps(
                         {
