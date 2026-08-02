@@ -47,9 +47,10 @@ def main():
         optns = [
             "创建新的项目文件夹",
             "编译已有的.rop文件",
-            "已有的项目文件夹信息",
+            "打开项目文件夹",
             "转换已有的项目文件夹为.rop文件",
             "转换.rop文件为项目文件夹",
+            "退出",
             "程序广场（程序广场站暂未开通）",
         ]
         optn, idx = p.pick(options=optns, indicator="", title=title)
@@ -311,6 +312,94 @@ def main():
                     i.get("desc", ""),
                 )
             console.print(gadgets)
+            while True:
+                console.print(
+                    "[black on cyan bold] 希望操作什么？（[u]g[/u]adgets [u]s[/u]howGadgets [u]l[/u]eftStartAddress [u]r[/u]ightStartAddress [red][u]q[/u]uit[/red]） [/black on cyan bold][cyan][/cyan]",
+                    end="",
+                )
+                ans = input()
+                if ans.lower() == "l":
+                    leftaddr = _prompt_address(
+                        "[black on cyan bold] 输入左侧地址（e.g. E9E0） [/black on cyan bold][cyan][/cyan]",
+                        console,
+                    )
+                    with open(f"{fpath}/config.json",'r') as f:
+                        context = json.loads(f.read())
+                        f.close()
+                    with open(f"{fpath}/config.json",'w') as f:
+                        tmp = json.dumps({"leftStartAddress":leftaddr,"rightStartAddress":context["rightStartAddress"],"ideVersion":ROPIDE_VERSION})
+                        f.write(tmp)
+                        f.close()
+                
+                elif ans.lower() == "r":
+                    rightaddr = _prompt_address(
+                        "[black on cyan bold] 输入右侧地址（e.g. D710） [/black on cyan bold][cyan][/cyan]",
+                        console,
+                    )
+                    with open(f"{fpath}/config.json",'r') as f:
+                        context = json.loads(f.read())
+                        f.close()
+                    with open(f"{fpath}/config.json",'w') as f:
+                        tmp = json.dumps({"leftStartAddress":context["leftStartAddress"],"rightStartAddress":rightaddr,"ideVersion":ROPIDE_VERSION})
+                        f.write(tmp)
+                        f.close()
+                elif ans.lower() == "g":
+                    console.print(
+                        "[black on cyan bold] 输入gadgets名（e.g. pop-xr12） [/black on cyan bold][cyan][/cyan]",
+                        end="",
+                    )
+                    name = input()
+                    console.print(
+                        "[black on cyan bold] 输入地址（e.g. 1D52C） [/black on cyan bold][cyan][/cyan]",
+                        end="",
+                    )
+                    addr = input()
+                    console.print(
+                        "[black on cyan bold] 输入描述（e.g. 赋值XR12） [/black on cyan bold][cyan][/cyan]",
+                        end="",
+                    )
+                    desc = input()
+                    with open(f"{fpath}/gadgets.json",'r') as f:
+                        context = json.loads(f.read())
+                    with open(f"{fpath}/gadgets.json",'w') as f:
+                        context.append({"name":name,"addr":addr,"desc":desc,"tags":[]})
+                        f.write(json.dumps(context,ensure_ascii=False))
+                elif ans.lower() == "s":
+                    gadgets = Table(title="[black on green] gadgets [/black on green]")
+                    gadgets.add_column("名称")
+                    gadgets.add_column("地址")
+                    gadgets.add_column("描述")
+                    # gadgets.add_column("标签")
+                    # 过于先进，无法展示
+                    try:
+                        with open(f"{fpath}/gadgets.json", "r") as f:
+                            raw_gadgets = f.read()
+                            f.close()
+                        gadgets_list = json.loads(raw_gadgets) if raw_gadgets.strip() else []
+                    except FileNotFoundError:
+                        console.print(
+                            f"[black on red] ERROR [/black on red] 找不到 {fpath}/gadgets.json。"
+                        )
+                        continue
+                    except json.JSONDecodeError:
+                        console.print(
+                            f"[black on red] ERROR [/black on red] {fpath}/gadgets.json 不是合法的 JSON 文件。"
+                        )
+                        continue
+                    if not isinstance(gadgets_list, list):
+                        console.print(
+                            f"[black on red] ERROR [/black on red] {fpath}/gadgets.json 的内容不是数组。"
+                        )
+                        continue
+                    for i in gadgets_list:
+                        gadgets.add_row(
+                            f"[i]{i.get('name', '?')}[/i]",
+                            i.get("addr", "?"),
+                            i.get("desc", ""),
+                        )
+                    console.print(gadgets)
+                elif ans.lower() == "q":
+                    break
 
         elif idx == 3:
             console.print(f"[black on white] LOG [/black on white] 选择了 {idx}。")
@@ -450,7 +539,8 @@ def main():
                     )
                 )
                 f.close()
-
+        elif idx == 5:
+            return 0
 
 if __name__ == "__main__":
     main()
