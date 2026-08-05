@@ -32,6 +32,7 @@ def cmp(a, b):
 
 def main():
     console = Console()
+    console_table = Console(markup=False)
     console.print(
         "[black bold on cyan] 版本号 [/black bold on cyan] RopIDE-Python version-010826"
     )
@@ -279,7 +280,9 @@ def main():
             console.print(
                 f"[black on blue] 左侧地址 [/black on blue] 0x{config['leftStartAddress']}，[black on blue] 右侧地址 [/black on blue] 0x{config['rightStartAddress']}"
             )
-            gadgets = Table(title="[black on green] gadgets [/black on green]")
+            gadgets = Table(
+                title=Text(" gadgets ", style="black on green"), style="green"
+            )
             gadgets.add_column("名称")
             gadgets.add_column("地址")
             gadgets.add_column("描述")
@@ -305,11 +308,11 @@ def main():
                 continue
             for i in gadgets_list:
                 gadgets.add_row(
-                    f"[i]{i.get('name', '?')}[/i]",
+                    Text(f"{i.get('name', '?')}", style="bold italic yellow"),
                     i.get("addr", "?"),
                     i.get("desc", ""),
                 )
-            console.print(gadgets)
+            console_table.print(gadgets)
             while True:
                 console.print(
                     "[black on cyan bold] 希望操作什么？（[u]g[/u]adgets [u]s[/u]howGadgets [u]l[/u]eftStartAddress [u]r[/u]ightStartAddress [red][u]q[/u]uit[/red]） [/black on cyan bold][cyan][/cyan]",
@@ -404,7 +407,7 @@ def main():
                             i.get("addr", "?"),
                             i.get("desc", ""),
                         )
-                    console.print(gadgets)
+                    console_table.print(gadgets)
                 elif ans.lower() == "q":
                     break
 
@@ -594,7 +597,8 @@ def main():
                             Text(i["model"]).wrap(console, width=20),
                             Text(i["description"]).wrap(console, width=20),
                         )
-                    console.print(table_itmes)
+
+                    console_table.print(table_itmes)
                     while True:
                         console.print(
                             "[black on cyan bold] 输入想要操作的程序编号（[u]q[/u]uit） [/black on cyan bold][cyan][/cyan]",
