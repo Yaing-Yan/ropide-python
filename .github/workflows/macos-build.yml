@@ -1,0 +1,40 @@
+name: Build macOS binaries
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            arch: arm64
+          - runner: macos-13
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pyinstaller rich hexdump2 pick pyperclip requests
+
+      - name: Build main
+        run: pyinstaller --noconfirm --clean --onefile --name main --add-data "gadgets:gadgets" --distpath "dist/macos-${{ matrix.arch }}" main.py
+
+      - name: Build install_nvim_plugin
+        run: pyinstaller --noconfirm --clean --onefile --name install_nvim_plugin --add-data "nvim:nvim" --distpath "dist/macos-${{ matrix.arch }}" install_nvim_plugin.py
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ropide-macos-${{ matrix.arch }}
+          path: "dist/macos-${{ matrix.arch }}/*"
+          if-no-files-found: error
