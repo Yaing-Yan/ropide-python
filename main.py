@@ -1,4 +1,5 @@
 from rich.console import Console
+import webcolors
 from rich.table import Table
 from rich.text import Text
 from hexdump2 import hexdump
@@ -9,6 +10,7 @@ import os
 import pick as p
 import requests
 import sys
+import jieba
 
 ROPIDE_VERSION = 100
 BASE_URL = "https://ropide.pages.dev"  # 怎么颇有点调用AI模型的感觉
@@ -280,42 +282,10 @@ def main():
             console.print(
                 f"[black on blue] 左侧地址 [/black on blue] 0x{config['leftStartAddress']}，[black on blue] 右侧地址 [/black on blue] 0x{config['rightStartAddress']}"
             )
-            gadgets = Table(
-                title=Text(" gadgets ", style="black on green"), style="green"
-            )
-            gadgets.add_column("名称")
-            gadgets.add_column("地址")
-            gadgets.add_column("描述")
-            # gadgets.add_column("标签")
-            # 过于先进，无法展示
-            try:
-                raw_gadgets = package.get_text(f"{fpath}/gadgets.json")
-                gadgets_list = json.loads(raw_gadgets) if raw_gadgets.strip() else []
-            except FileNotFoundError:
-                console.print(
-                    f"[black on red] ERROR [/black on red] 找不到 {fpath}/gadgets.json。"
-                )
-                continue
-            except json.JSONDecodeError:
-                console.print(
-                    f"[black on red] ERROR [/black on red] {fpath}/gadgets.json 不是合法的 JSON 文件。"
-                )
-                continue
-            if not isinstance(gadgets_list, list):
-                console.print(
-                    f"[black on red] ERROR [/black on red] {fpath}/gadgets.json 的内容不是数组。"
-                )
-                continue
-            for i in gadgets_list:
-                gadgets.add_row(
-                    Text(f"{i.get('name', '?')}", style="bold italic yellow"),
-                    i.get("addr", "?"),
-                    i.get("desc", ""),
-                )
-            console_table.print(gadgets)
+
             while True:
                 console.print(
-                    "[black on cyan bold] 希望操作什么？（[u]g[/u]adgets [u]s[/u]howGadgets [u]l[/u]eftStartAddress [u]r[/u]ightStartAddress [red][u]q[/u]uit[/red]） [/black on cyan bold][cyan][/cyan]",
+                    "[black on cyan bold] 希望操作什么？（添加[u]g[/u]adgets [u]d[/u]elect gadgets [u]s[/u]howGadgets [u]l[/u]eftStartAddress [u]r[/u]ightStartAddress [red][u]q[/u]uit[/red]） [/black on cyan bold][cyan][/cyan]",
                     end="",
                 )
                 ans = input()
@@ -368,19 +338,118 @@ def main():
                         end="",
                     )
                     desc = input()
+                    tags = []
+                    while True:
+                        console.print(
+                            '[black on cyan bold] 输入标签（e.g. RT返回，"EOT" 结束。） [/black on cyan bold][cyan][/cyan]',
+                            end="",
+                        )
+                        tagname = input()
+                        if tagname == "" or tagname == "\n":
+                            continue
+                        elif tagname == "EOT":
+                            break
+                        else:
+                            console.print(
+                                "[black on cyan bold] 输入标签颜色（e.g. blue） [/black on cyan bold][cyan][/cyan]",
+                                end="",
+                            )
+                            tagcolor = input().lower()
+                        try:
+                            console.print(
+                                f"预览 [black on {webcolors.name_to_hex(tagcolor)}] {tagname} [/black on {webcolors.name_to_hex(tagcolor)}]"
+                            )
+                            tags.append({"name": tagname, "color": tagcolor})
+                        except ValueError as e:
+                            console.print(f"[black on red] ERROR [/black on red] {e}.")
+
                     context = json.loads(package.get_text(f"{fpath}/gadgets.json"))
                     with open(f"{fpath}/gadgets.json", "w", encoding="utf-8") as f:
                         context.append(
-                            {"name": name, "addr": addr, "desc": desc, "tags": []}
+                            {"name": name, "addr": addr, "desc": desc, "tags": tags}
                         )
                         f.write(json.dumps(context, ensure_ascii=False))
+                elif ans.lower() == "d":
+                    console.print(
+                        "[black on cyan bold] 输入要删除的标签名（e.g. pop-xr12） [/black on cyan bold][cyan][/cyan]",
+                        end="",
+                    )
+                    tagdelname = input()
+                    context = json.loads(package.get_text(f"{fpath}/gadgets.json"))
+                    found = False
+                    for i in context:
+                        if i["name"] == tagdelname:
+                            found = True
+                            console.print(
+                                "[black on yellow] WARN [/black on yellow] 真的要删除该标签吗 [[Y,n]]",
+                                end="",
+                            )
+
+                            gadgets = Table(
+                                title="[black on green]- gadgets -[/black on green]"
+                            )
+                            gadgets.add_column("名称", style="bold")
+                            gadgets.add_column("地址")
+                            gadgets.add_column("描述", style="yellow i")
+                            try:
+                                raw_gadgets = package.get_text(f"{fpath}/gadgets.json")
+                                gadgets_list = (
+                                    json.loads(raw_gadgets)
+                                    if raw_gadgets.strip()
+                                    else []
+                                )
+                            except FileNotFoundError:
+                                console.print(
+                                    f"[black on red] ERROR [/black on red] 找不到 {fpath}/gadgets.json。"
+                                )
+                                continue
+                            except json.JSONDecodeError:
+                                console.print(
+                                    f"[black on red] ERROR [/black on red] {fpath}/gadgets.json 不是合法的 JSON 文件。"
+                                )
+                                continue
+                            if not isinstance(gadgets_list, list):
+                                console.print(
+                                    f"[black on red] ERROR [/black on red] {fpath}/gadgets.json 的内容不是数组。"
+                                )
+                                continue
+
+                            gadgetscontext = (
+                                f"{i['name'].replace('[', '[[').replace(']', ']]')}"
+                            )
+                            for j in i["tags"]:
+                                gadgetscontext += f"\n[{'white' if (int(webcolors.name_to_hex(j['color'])[1:3], 16) * 299 + int(webcolors.name_to_hex(j['color'])[3:5], 16) * 587 + int(webcolors.name_to_hex(j['color'])[5:7], 16) * 114) / 1000 < 128 else 'black'} on {webcolors.name_to_hex(j['color'])}] {j['name']} [/{'white' if (int(webcolors.name_to_hex(j['color'])[1:3], 16) * 299 + int(webcolors.name_to_hex(j['color'])[3:5], 16) * 587 + int(webcolors.name_to_hex(j['color'])[5:7], 16) * 114) / 1000 < 128 else 'black'} on {webcolors.name_to_hex(j['color'])}]"
+                            gadgets.add_row(
+                                gadgetscontext,
+                                i.get("addr", "?")
+                                .replace("[", "[[")
+                                .replace("]", "]]"),
+                                i.get("desc", "").replace("[", "[[").replace("]", "]]"),
+                            )
+                            print()
+                            console.print(gadgets)
+                            answer = input()
+                            if answer.lower() == "n":
+                                continue
+                            elif (
+                                answer.lower() == "y" or answer == "" or answer == "\n"
+                            ):
+                                context.remove(i)
+                                with open(
+                                    f"{fpath}/gadgets.json", "w", encoding="utf-8"
+                                ) as f:
+                                    f.write(json.dumps(context, ensure_ascii=False))
+                                    f.close()
+                    if not found:
+                        console.print("未找到欲删除的gadgets。")
+
                 elif ans.lower() == "s":
-                    gadgets = Table(title="[black on green] gadgets [/black on green]")
-                    gadgets.add_column("名称")
+                    gadgets = Table(
+                        title="[black on green]- gadgets -[/black on green]"
+                    )
+                    gadgets.add_column("名称", style="bold")
                     gadgets.add_column("地址")
-                    gadgets.add_column("描述")
-                    # gadgets.add_column("标签")
-                    # 过于先进，无法展示
+                    gadgets.add_column("描述", style="yellow i")
                     try:
                         raw_gadgets = package.get_text(f"{fpath}/gadgets.json")
                         gadgets_list = (
@@ -402,12 +471,17 @@ def main():
                         )
                         continue
                     for i in gadgets_list:
-                        gadgets.add_row(
-                            f"[i]{i.get('name', '?')}[/i]",
-                            i.get("addr", "?"),
-                            i.get("desc", ""),
+                        gadgetscontext = (
+                            f"{i['name'].replace('[', '[[').replace(']', ']]')}"
                         )
-                    console_table.print(gadgets)
+                        for j in i["tags"]:
+                            gadgetscontext += f"\n[{'white' if (int(webcolors.name_to_hex(j['color'])[1:3], 16) * 299 + int(webcolors.name_to_hex(j['color'])[3:5], 16) * 587 + int(webcolors.name_to_hex(j['color'])[5:7], 16) * 114) / 1000 < 128 else 'black'} on {webcolors.name_to_hex(j['color'])}] {j['name']} [/{'white' if (int(webcolors.name_to_hex(j['color'])[1:3], 16) * 299 + int(webcolors.name_to_hex(j['color'])[3:5], 16) * 587 + int(webcolors.name_to_hex(j['color'])[5:7], 16) * 114) / 1000 < 128 else 'black'} on {webcolors.name_to_hex(j['color'])}]"
+                        gadgets.add_row(
+                            gadgetscontext,
+                            i.get("addr", "?").replace("[", "[[").replace("]", "]]"),
+                            i.get("desc", "").replace("[", "[[").replace("]", "]]"),
+                        )
+                    console.print(gadgets)
                 elif ans.lower() == "q":
                     break
 
@@ -579,26 +653,27 @@ def main():
                         f"[black on white] LOG [/black on white] [black on blue] GET [/black on blue] {BASE_URL}/api/market [green]{r.status_code} {r.reason}[/green] 耗时 {r.elapsed.total_seconds() * 1000}ms 喵。"
                     )
                     items = sorted(items, key=lambda x: x["id"], reverse=True)
-                    table_itmes = Table(title="程序广场", show_lines=True)
-                    table_itmes.add_column("编号", no_wrap=False)
-                    table_itmes.add_column(
-                        "名称", style="bold", no_wrap=False, width=20
+                    table_itmes = Table(
+                        title="[black on cyan]- 程序列表 -[/black on cyan]",
+                        show_lines=True,
                     )
-                    table_itmes.add_column("作者", no_wrap=False, width=20)
-                    table_itmes.add_column("机型", no_wrap=False, width=20)
+                    table_itmes.add_column("编号", overflow="fold")
+                    table_itmes.add_column("名称", style="bold", overflow="fold")
+                    table_itmes.add_column("作者", overflow="fold")
+                    table_itmes.add_column("机型", overflow="fold")
                     table_itmes.add_column(
-                        "描述", style="yellow italic", no_wrap=False, width=20
+                        "描述", style="yellow italic", overflow="fold"
                     )
                     for i in items:
                         table_itmes.add_row(
                             str(i["id"]),
-                            Text(i["name"]).wrap(console, width=20),
-                            Text(i["author"]).wrap(console, width=20),
-                            Text(i["model"]).wrap(console, width=20),
-                            Text(i["description"]).wrap(console, width=20),
+                            i["name"].replace("[", "[[").replace("]", "]]"),
+                            i["author"].replace("[", "[[").replace("]", "]]"),
+                            i["model"].replace("[", "[[").replace("]", "]]"),
+                            i["description"].replace("[", "[[").replace("]", "]]"),
                         )
 
-                    console_table.print(table_itmes)
+                    console.print(table_itmes)
                     while True:
                         console.print(
                             "[black on cyan bold] 输入想要操作的程序编号（[u]q[/u]uit） [/black on cyan bold][cyan][/cyan]",

@@ -33,8 +33,35 @@ jobs:
       - name: Build install_nvim_plugin
         run: pyinstaller --noconfirm --clean --onefile --name install_nvim_plugin --add-data "nvim:nvim" --distpath "dist/macos-${{ matrix.arch }}" install_nvim_plugin.py
 
+      - name: Package zip
+        run: |
+          cd "dist/macos-${{ matrix.arch }}"
+          zip -r ../../ropide-macos-${{ matrix.arch }}.zip main install_nvim_plugin
+
       - uses: actions/upload-artifact@v4
         with:
           name: ropide-macos-${{ matrix.arch }}
           path: "dist/macos-${{ matrix.arch }}/*"
           if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ropide-macos-${{ matrix.arch }}-zip
+          path: "ropide-macos-${{ matrix.arch }}.zip"
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ropide-macos-*-zip
+          path: release/
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.zip
+          generate_release_notes: true

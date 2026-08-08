@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['/home/yanshangxuan/human-coding/ropide-python/main.py'],
+    ['main.py'],
     pathex=[],
     binaries=[],
     datas=[('gadgets', 'gadgets')],

@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['/home/yanshangxuan/human-coding/ropide-python/install_nvim_plugin.py'],
+    ['install_nvim_plugin.py'],
     pathex=[],
     binaries=[],
     datas=[('nvim', 'nvim')],

@@ -1,5 +1,82 @@
-*依旧AI写README*
 # RopIDE-Python
+
+> English
+
+Based on the RopIDE created by Tieba user @wlyibo, this is a Python port that can somewhat solve the frustrations of being unable to upload files due to browser issues and not being able to conveniently write ROP programs without an internet connection.
+
+## Features
+
+* Create/open ROP project folders and manage `main.rin`, `gadgets.json`, and `config.json`
+* Compile `.rop` files (assembly DSL → hexadecimal strings), with hexdump preview and one-click copying
+* Convert between `.rop` files and project folders
+* Built-in CASIO fx-991 CN X VerF / VerC two gadget presets
+* Program Square (online program fetching/uploading, requires internet access)
+* Companion Neovim plugin: `.rin` syntax highlighting + gadget completion
+
+## Installation
+
+Requires **Python 3.10+** (tested successfully on Python 3.14):
+
+```bash
+pip install rich hexdump2 pick pyperclip requests
+```
+
+* Clipboard support depends on system utilities: Linux requires `xclip` or `xsel`; macOS and Windows have them built in. If unavailable, the program will display a "copy failed" message.
+* Windows users need to additionally install curses support (required by the `pick` menu):
+
+```bash
+pip install windows-curses
+```
+
+* All file I/O uses UTF-8 encoding. When reading files, it automatically supports GBK-encoded files created by older versions on Chinese Windows systems.
+
+## Usage
+
+```bash
+python main.py    # Try python3 if python is unavailable
+```
+
+Compile a single file from the command line:
+
+```bash
+python compiler.py path/to/file.rop
+```
+
+## Project Folder Structure
+
+```
+Project Root/
+├── main.rin       # ROP assembly source code (the input field of .rop)
+├── gadgets.json   # Gadget list, JSON array
+└── config.json    # Configuration file
+```
+
+> This program only provides file management functionality. It **does not include a built-in editor** and should be used with terminal-based code editors (such as vim/nvim).
+> Do not rename files inside the project folder!
+> The `.rin` syntax is the same as RopIDE.
+
+## Neovim Plugin
+
+Run the following script to enable `.rin` syntax highlighting and gadget completion:
+
+```bash
+python3 install_nvim_plugin.py
+```
+
+It automatically detects lazy.nvim or installs via symlink. Supports parameters such as `--repo`, `--dry-run`, and `--uninstall`. See the script documentation for details.
+
+## About Vibe Coding
+
+The `compiler.compiler()` migration took 2 hours. Of that time, about 1.75 hours were spent frantically fixing bugs, while 0.25 hours were spent giving up and using Vibe Coding. Almost everything else was done through human coding, except for some `try...except` blocks where AI generated error messages. I also used DeepSeek-v4-flash-0731 to investigate some bugs.
+
+(Thanks to @Liangsheng for open-sourcing this project!)
+
+## Acknowledgements
+
+* Original RopIDE: Tieba user @wlyibo
+  Web version: [https://ropide.pages.dev](https://ropide.pages.dev)
+
+> 简体中文(SC)
 
 基于贴吧@wlyibo制作的 RopIDE 的 Python 移植版本，可以一定程度上解决浏览器抽风上传不了文件、没有网的时候无法方便地写 ROP 程序的痛苦。## 功能
 
@@ -48,41 +125,6 @@ python compiler.py path/to/file.rop
 > 请勿更改项目文件夹里的文件名！
 > .rin 语法（与 RopIDE 相同）
 
-`gadgets.json` 格式示例：
-
-```json
-[{"name": "pop-er0", "addr": "121A8", "desc": "赋值 ER0", "tags": []}]
-```
-
-`config.json` 格式：
-
-```json
-{"leftStartAddress": "E9E0", "rightStartAddress": "D710", "ideVersion": 100}
-```
-
-## 程序广场
-
-**我们终于适配了程序广场！**
-
-程序广场对接网页版 RopIDE 的 API（`https://ropide.pages.dev/api/market`），需要联网。进入后有三种操作（输入首字母，如 `g` / `p` / `q`）：
-
-**G — 获取程序列表**
-- 请求 `GET /api/market`，按 id 倒序排列，以表格展示：编号、名称、作者、机型、描述
-- 输入程序编号可下载单个程序（`GET /api/market?id=<编号>`），下载后可选：
-  - `g` — 提取 gadgets，导出为 gadgets.json 文件
-  - `r` — 导出整个 `.rop` 文件
-  - `q` — 返回
-- 导出时可输入任意路径，自动创建缺失的父目录
-
-**P — 上传程序**
-- 输入本地 `.rop` 文件路径，再依次输入程序名、作者、机型
-- 描述为多行输入，单独一行 `EOD` 作为结束标识
-- 通过 `POST /api/market` 提交（字段：`name` / `author` / `model` / `description` / `data`）
-
-**q — 退出**，返回主菜单
-
-所有请求均有 10 秒超时，网络失败、非 JSON 响应、数据格式异常都会打印错误提示并返回，不会中断程序。
-
 ## Neovim 插件
 
 运行以下脚本可获得 `.rin` 语法高亮与 gadgets 补全：
@@ -92,12 +134,6 @@ python3 install_nvim_plugin.py
 ```
 
 自动检测 lazy.nvim 或直接软链安装，支持 `--repo`、`--dry-run`、`--uninstall` 等参数，详见脚本内文档。
-
-## 开发说明
-
-- `main.py`：终端交互主程序（菜单、文件操作、程序广场）
-- `compiler.py`：核心编译器，将 `.rin` 汇编 DSL 编译为十六进制字符串
-- `package.py`：`.rop` 文件的打包/解包与文本读取（UTF-8/GBK 兼容）
 
 ## 关于Vibe Coding
 `compiler.compiler()`花了2个小时移植，其中的1.75小时在疯狂改bug，0.25小时在放弃并使用Vibe-coding 其他的基本上都是human-coding，除了一些`try……except`块是AI写的错误提示然后还用了一下deepseek-v4-flash-0731查了下bug（感谢梁圣开源喵！）
