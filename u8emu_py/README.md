@@ -9,7 +9,6 @@ Thanks to Tieba user **@噶么prince** for open-sourcing **CasioEmuMsvc** — th
 foundation of this emulator (and of the built-in emulator used by
 [RopIDE-Python](https://github.com/human-coding/ropide-python) for debugging).
 
-> Derived from the GPL-3.0 project (CasioEmuMsvc), this repository must remain GPL-3.0.
 
 ## Features
 
@@ -65,9 +64,6 @@ Full CLI options: `python3 -m u8emu --help`.
 
 感谢贴吧 **@噶么prince** 开源 **CasioEmuMsvc** —— 本模拟器（以及
 [RopIDE-Python](https://github.com/human-coding/ropide-python) 内置调试模拟器）的基础。
-
-> 衍生自 GPL-3.0 项目（CasioEmuMsvc），本仓库必须保持 GPL-3.0。
-
 ## 特性
 
 - 机型：fx-991CN X **VerF / VerC**（已验证：冷启动进主屏、按键输入、待机唤醒、RPC/插件全链路）、fx-991ES PLUS（结构正确，键盘矩阵为占位）、generic
