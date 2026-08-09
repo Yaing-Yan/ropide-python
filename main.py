@@ -1,20 +1,23 @@
 from rich.console import Console
 import webcolors
 from rich.table import Table
-from rich.text import Text
 from hexdump2 import hexdump
 from pathlib import Path
+from dotenv import load_dotenv, set_key
+from u8emu_py.u8emu.cnxemu import Cnxemu
+
 import compiler, package, json
 import pyperclip as clip
 import os
 import pick as p
 import requests
 import sys
-import jieba
 
 ROPIDE_VERSION = 100
 BASE_URL = "https://ropide.pages.dev"  # 怎么颇有点调用AI模型的感觉
 items = None
+ENV_PATH = Path.home() / ".env"  # 统一使用这个路径
+load_dotenv(ENV_PATH, override=True)  # 强制覆盖系统变量
 
 
 def _prompt_address(prompt: str, console: Console) -> str:
@@ -28,6 +31,74 @@ def _prompt_address(prompt: str, console: Console) -> str:
         )
 
 
+def _gadget_name_cell(gadget):
+    """生成 gadgets 表格"名称"单元格文本 (名称 + 带色标签行)。
+
+    对缺失/非法字段做容错: 名称缺省用 "?", 标签颜色无效时回退为白底黑字。
+    """
+    name = str(gadget.get("name", "?")).replace("[", "[[").replace("]", "]]")
+    cell = name
+    for tag in gadget.get("tags", []):
+        if not isinstance(tag, dict):
+            continue
+        tagname = tag.get("name", "?")
+        color = tag.get("color")
+        try:
+            hexcolor = webcolors.name_to_hex(color)
+            lum = (
+                int(hexcolor[1:3], 16) * 299
+                + int(hexcolor[3:5], 16) * 587
+                + int(hexcolor[5:7], 16) * 114
+            ) / 1000
+            fg = "white" if lum < 128 else "black"
+        except (ValueError, TypeError, KeyError, AttributeError):
+            fg, hexcolor = "black", "white"
+        cell += f"\n[{fg} on {hexcolor}] {tagname} [/{fg} on {hexcolor}]"
+    return cell
+
+
+def _debug_emulator(leftaddr, hex_chars, linnes):
+    """实验性调试: 在模拟器中覆写 RAM 并启动。
+
+    未配置或配置了无效的 DEFAULT_ROM_FILE 时给出 WARN 并跳过, 不再静默失败。
+    """
+    console = Console()
+    rom = os.getenv("DEFAULT_ROM_FILE")
+    if not rom:
+        console.print(
+            '[black on yellow] WARN [/black on yellow] 未配置[u b]DEFAULT_ROM_FILE[/u b]，无法调试。请先在菜单中选择"配置模拟器参数"。'
+        )
+        return
+    try:
+        cnx = Cnxemu().load(rom)
+    except Exception:
+        console.print(
+            "[black on yellow] WARN [/black on yellow] 模拟器ROM文件无效，无法调试。请重新配置[u b]DEFAULT_ROM_FILE[/u b]。"
+        )
+        return
+    console.print(
+        f"[black on white] LOG [/black on white] 尝试覆写RAM，偏移量{leftaddr}。"
+    )
+    cnx.write(off=int(leftaddr, 16), byte=hex_chars)
+    console.print(
+        f"可能带有launcher信息的行：\n [yellow]{chr(10).join(linnes)}[/yellow]."
+        if linnes
+        else "未找到launcher相关信息"
+    )
+    console.print(
+        "[black on cyan bold] 输入launcher 的hex字符串（抄上面列出的launcher信息，如果没有就自己填写，e.g. FD 24 E9 E0 8F 23 42） [/black on cyan bold][cyan][/cyan]",
+        end="",
+    )
+    trulauncher = input()
+    cnx.press("POWER")
+    cnx.write(off=0xD180, byte=trulauncher)
+    cnx.press("left")
+
+    input("Press enter to open the emuthor...")
+    cnx.control(exit_key="q")
+    cnx.kill()
+
+
 def cmp(a, b):
     pass
 
@@ -39,7 +110,7 @@ def main():
         "[black bold on cyan] 版本号 [/black bold on cyan] RopIDE-Python version-010826"
     )
     console.print(
-        "[black on yellow bold] 简介 [/black on yellow bold] [italic]这是基于贴吧@wlyibo制作的RopIDE：Python移植版本，一定程度上可以解决浏览器抽风上传不了文件/没有网的时候无法方便地写ROP程序的痛苦。[/italic]"
+        "[black on yellow bold] 简介 [/black on yellow bold] [italic]这是基于贴吧@wlyibo制作的RopIDE：Python移植版本，专注为CASIO fx 991 CN X系列设计，一定程度上可以解决浏览器抽风上传不了文件/没有网的时候无法方便地写ROP程序的痛苦。[/italic]"
     )
     console.print(
         "[black on red bold] 网页版 [/black on red bold] [italic u]ropide.pages.dev[/italic u]"
@@ -49,6 +120,19 @@ def main():
     console.print(
         "[b]欢迎使用RopIDE[black on blue]Pyt[/black on blue][black on yellow]hon[/black on yellow]！\n[/b]本程序应与终端代码编辑器配合使用。本程序仅提供文件操作功能，无内置编辑器。"
     )
+
+    if os.getenv("DEFAULT_ROM_FILE") != None:
+        try:
+            cnx = Cnxemu().load(os.getenv("DEFAULT_ROM_FILE"))
+            cnx.kill()
+        except:
+            console.print(
+                '[black on yellow] WARN [/black on yellow] 模拟器ROM文件无效，或者是配置了错误的环境变量[u b]DEFAULT_ROM_FILE[/u b]。请尝试在菜单中选择"配置模拟器参数"以重新配置。'
+            )
+    else:
+        console.print(
+            '[black on yellow] WARN [/black on yellow] 环境变量[u b]DEFAULT_ROM_FILE[/u b]未配置。请尝试在菜单中选择"配置模拟器参数"以配置。'
+        )
 
     while True:
         print("Continue with Enter ……")
@@ -62,6 +146,7 @@ def main():
             "转换已有的项目文件夹为.rop文件",
             "转换.rop文件为项目文件夹",
             "程序广场",
+            "配置模拟器参数",
             "退出",
         ]
         optn, idx = p.pick(options=optns, indicator="", title=title)
@@ -213,15 +298,14 @@ def main():
 
             target = "launch"
             cnt = 0
-            linne = None
+            linnes = []
             for line in context["input"].splitlines():
                 cnt += 1
                 if target.lower() in line.lower():  # 不区分大小写
                     console.print(
                         f"[black on white] LOG [/black on white] 似乎在 行{cnt} 找到了有关launcher的信息。"
                     )
-                    linne = line
-                    break
+                    linnes.append(line)
 
             opt = compiler.compiler(context)
             console.print(
@@ -229,8 +313,8 @@ def main():
             )
             console.print(f"左侧起始地址：[black on yellow]0x{opt['leftaddr']}")
             console.print(
-                f"可能带有launcher信息的行：\n [yellow]{linne}[/yellow]."
-                if linne != None
+                f"可能带有launcher信息的行：\n [yellow]{chr(10).join(linnes)}[/yellow]."
+                if linnes
                 else "未找到launcher相关信息"
             )
 
@@ -251,6 +335,10 @@ def main():
                     console.print(
                         "[black on red] ERROR [/black on red] 复制失败：未找到可用的剪贴板工具（需要 xclip/xsel/pbcopy 等）。"
                     )
+            console.print("要调试吗，实验性功能[ y/N ]", end="")
+            shouldebug = input()
+            if shouldebug.lower() == "y":
+                _debug_emulator(context["leftStartAddress"], opt["hex_chars"], linnes)
 
         elif idx == 2:
             console.print(f"[black on white] LOG [/black on white] 选择了 {optn}。")
@@ -285,11 +373,105 @@ def main():
 
             while True:
                 console.print(
-                    "[black on cyan bold] 希望操作什么？（添加[u]g[/u]adgets [u]d[/u]elect gadgets [u]s[/u]howGadgets [u]l[/u]eftStartAddress [u]r[/u]ightStartAddress [red][u]q[/u]uit[/red]） [/black on cyan bold][cyan][/cyan]",
+                    "[black on cyan bold] 希望操作什么？([u]c[/u]ompiler 添加[u]g[/u]adgets [u]d[/u]elete gadgets [u]s[/u]howGadgets [u]l[/u]eftStartAddress [u]r[/u]ightStartAddress [red][u]q[/u]uit[/red]） [/black on cyan bold][cyan][/cyan]",
                     end="",
                 )
                 ans = input()
-                if ans.lower() == "l":
+                if ans.lower() == "c":
+                    console.print(
+                        "[black on white] LOG [/black on white] 合成编译字符串。"
+                    )
+                    try:
+                        with open(Path(fpath, "main.rin"), "r") as f:
+                            inputcontext = f.read()
+                            f.close()
+                        with open(Path(fpath, "config.json"), "r") as f:
+                            configcontext = json.loads(f.read())
+                            leftaddr = configcontext["leftStartAddress"]
+                            rightaddr = configcontext["rightStartAddress"]
+                            f.close()
+                        with open(Path(fpath, "gadgets.json"), "r") as f:
+                            gadgetscontext = json.loads(f.read())
+                            f.close()
+
+                    except FileNotFoundError:
+                        console.print(
+                            f"[black on red] ERROR [/black on red] 我文件呢？"
+                        )
+                        continue
+                    except PermissionError:
+                        console.print(
+                            f"[black on red] ERROR [/black on red] 我权限呢？"
+                        )
+                        continue
+                    except (json.JSONDecodeError, UnicodeDecodeError):
+                        console.print(
+                            f"[black on red] ERROR [/black on red] 不是合法的文件。"
+                        )
+                        continue
+                    console.print(f"[black on white] LOG [/black on white] 成功加载。")
+
+                    try:
+                        int(leftaddr, 16)
+                        int(rightaddr, 16)
+                    except ValueError:
+                        console.print(
+                            f"[black on red] ERROR [/black on red] 地址字段不是合法的十六进制。"
+                        )
+                        continue
+
+                    target = "launch"
+                    cnt = 0
+                    linnes = []
+                    for line in inputcontext.splitlines():
+                        cnt += 1
+                        if target.lower() in line.lower():  # 不区分大小写
+                            console.print(
+                                f"[black on white] LOG [/black on white] 似乎在 行{cnt} 找到了有关launcher的信息。"
+                            )
+                            linnes.append(line)
+
+                    opt = compiler.compiler(
+                        {
+                            "input": inputcontext,
+                            "leftStartAddress": leftaddr,
+                            "rightStartAddress": rightaddr,
+                            "gadgets": gadgetscontext,
+                        }
+                    )
+                    console.print(
+                        f"[black on white] LOG [/black on white] 完成编译。总共 {opt['totalnum']} bytes，{opt['error_count']} errors。"
+                    )
+                    console.print(f"左侧起始地址：[black on yellow]0x{opt['leftaddr']}")
+                    console.print(
+                        f"可能带有launcher信息的行：\n [yellow]{chr(10).join(linnes)}[/yellow]."
+                        if linnes
+                        else "未找到launcher相关信息"
+                    )
+
+                    if len(opt["hex_chars"]) % 2 == 1:
+                        console.print(
+                            f"[black on red] ERROR [/black on red] 编译结果含奇数个十六进制字符（共 {len(opt['hex_chars'])} 个），无法以字节形式显示。请检查代码中的裸十六进制字符是否成对出现。"
+                        )
+                    else:
+                        hexbytes = bytes.fromhex(opt["hex_chars"])
+                        start_addr = int("0x" + opt["leftaddr"], 0)
+                        hexdump(hexbytes, offset=start_addr)
+                    console.print("要复制吗[Y/n]", end="")
+                    shouldcopyornot = input()
+                    if not (shouldcopyornot.lower() == "n"):
+                        try:
+                            clip.copy(opt["hex_chars"])
+                        except Exception:
+                            console.print(
+                                "[black on red] ERROR [/black on red] 复制失败：未找到可用的剪贴板工具（需要 xclip/xsel/pbcopy 等）。"
+                            )
+                    console.print("要调试吗，实验性功能[ y/N ]", end="")
+                    shouldebug = input()
+                    if shouldebug.lower() == "y":
+                        _debug_emulator(leftaddr, opt["hex_chars"], linnes)
+
+                elif ans.lower() == "l":
                     leftaddr = _prompt_address(
                         "[black on cyan bold] 输入左侧地址（e.g. E9E0） [/black on cyan bold][cyan][/cyan]",
                         console,
@@ -375,10 +557,27 @@ def main():
                         end="",
                     )
                     tagdelname = input()
-                    context = json.loads(package.get_text(f"{fpath}/gadgets.json"))
+                    try:
+                        raw_gadgets = package.get_text(f"{fpath}/gadgets.json")
+                        context = json.loads(raw_gadgets) if raw_gadgets.strip() else []
+                    except FileNotFoundError:
+                        console.print(
+                            f"[black on red] ERROR [/black on red] 找不到 {fpath}/gadgets.json。"
+                        )
+                        continue
+                    except json.JSONDecodeError:
+                        console.print(
+                            f"[black on red] ERROR [/black on red] {fpath}/gadgets.json 不是合法的 JSON 文件。"
+                        )
+                        continue
+                    if not isinstance(context, list):
+                        console.print(
+                            f"[black on red] ERROR [/black on red] {fpath}/gadgets.json 的内容不是数组。"
+                        )
+                        continue
                     found = False
                     for i in context:
-                        if i["name"] == tagdelname:
+                        if i.get("name") == tagdelname:
                             found = True
                             console.print(
                                 "[black on yellow] WARN [/black on yellow] 真的要删除该标签吗 [[Y,n]]",
@@ -391,40 +590,14 @@ def main():
                             gadgets.add_column("名称", style="bold")
                             gadgets.add_column("地址")
                             gadgets.add_column("描述", style="yellow i")
-                            try:
-                                raw_gadgets = package.get_text(f"{fpath}/gadgets.json")
-                                gadgets_list = (
-                                    json.loads(raw_gadgets)
-                                    if raw_gadgets.strip()
-                                    else []
-                                )
-                            except FileNotFoundError:
-                                console.print(
-                                    f"[black on red] ERROR [/black on red] 找不到 {fpath}/gadgets.json。"
-                                )
-                                continue
-                            except json.JSONDecodeError:
-                                console.print(
-                                    f"[black on red] ERROR [/black on red] {fpath}/gadgets.json 不是合法的 JSON 文件。"
-                                )
-                                continue
-                            if not isinstance(gadgets_list, list):
-                                console.print(
-                                    f"[black on red] ERROR [/black on red] {fpath}/gadgets.json 的内容不是数组。"
-                                )
-                                continue
-
-                            gadgetscontext = (
-                                f"{i['name'].replace('[', '[[').replace(']', ']]')}"
-                            )
-                            for j in i["tags"]:
-                                gadgetscontext += f"\n[{'white' if (int(webcolors.name_to_hex(j['color'])[1:3], 16) * 299 + int(webcolors.name_to_hex(j['color'])[3:5], 16) * 587 + int(webcolors.name_to_hex(j['color'])[5:7], 16) * 114) / 1000 < 128 else 'black'} on {webcolors.name_to_hex(j['color'])}] {j['name']} [/{'white' if (int(webcolors.name_to_hex(j['color'])[1:3], 16) * 299 + int(webcolors.name_to_hex(j['color'])[3:5], 16) * 587 + int(webcolors.name_to_hex(j['color'])[5:7], 16) * 114) / 1000 < 128 else 'black'} on {webcolors.name_to_hex(j['color'])}]"
                             gadgets.add_row(
-                                gadgetscontext,
-                                i.get("addr", "?")
+                                _gadget_name_cell(i),
+                                str(i.get("addr", "?"))
                                 .replace("[", "[[")
                                 .replace("]", "]]"),
-                                i.get("desc", "").replace("[", "[[").replace("]", "]]"),
+                                str(i.get("desc", ""))
+                                .replace("[", "[[")
+                                .replace("]", "]]"),
                             )
                             print()
                             console.print(gadgets)
@@ -471,15 +644,14 @@ def main():
                         )
                         continue
                     for i in gadgets_list:
-                        gadgetscontext = (
-                            f"{i['name'].replace('[', '[[').replace(']', ']]')}"
-                        )
-                        for j in i["tags"]:
-                            gadgetscontext += f"\n[{'white' if (int(webcolors.name_to_hex(j['color'])[1:3], 16) * 299 + int(webcolors.name_to_hex(j['color'])[3:5], 16) * 587 + int(webcolors.name_to_hex(j['color'])[5:7], 16) * 114) / 1000 < 128 else 'black'} on {webcolors.name_to_hex(j['color'])}] {j['name']} [/{'white' if (int(webcolors.name_to_hex(j['color'])[1:3], 16) * 299 + int(webcolors.name_to_hex(j['color'])[3:5], 16) * 587 + int(webcolors.name_to_hex(j['color'])[5:7], 16) * 114) / 1000 < 128 else 'black'} on {webcolors.name_to_hex(j['color'])}]"
                         gadgets.add_row(
-                            gadgetscontext,
-                            i.get("addr", "?").replace("[", "[[").replace("]", "]]"),
-                            i.get("desc", "").replace("[", "[[").replace("]", "]]"),
+                            _gadget_name_cell(i),
+                            str(i.get("addr", "?"))
+                            .replace("[", "[[")
+                            .replace("]", "]]"),
+                            str(i.get("desc", ""))
+                            .replace("[", "[[")
+                            .replace("]", "]]"),
                         )
                     console.print(gadgets)
                 elif ans.lower() == "q":
@@ -496,6 +668,7 @@ def main():
                 context = package.get_text(f"{fpath}/main.rin")
                 raw_gadgets = package.get_text(f"{fpath}/gadgets.json")
                 tmp = json.loads(package.get_text(f"{fpath}/config.json"))
+                gadgets = json.loads(raw_gadgets) if raw_gadgets.strip() else []
             except FileNotFoundError:
                 console.print(
                     f"[black on red] ERROR [/black on red] {fpath} 缺少 main.rin / gadgets.json / config.json。"
@@ -524,7 +697,6 @@ def main():
                     f"[black on red] ERROR [/black on red] {fpath}/config.json 中的地址不是合法的十六进制。"
                 )
                 continue
-            gadgets = json.loads(raw_gadgets) if raw_gadgets.strip() else []
             if not isinstance(gadgets, list):
                 console.print(
                     f"[black on red] ERROR [/black on red] {fpath}/gadgets.json 的内容不是数组。"
@@ -826,6 +998,37 @@ def main():
                     break
 
         elif idx == 6:
+            if (
+                os.getenv("DEFAULT_ROM_FILE", "i seems don't have a value!")
+                != "i seems don't have a value!"
+            ):
+                console.print(
+                    f"[black on yellow] WARN [/black on yellow] 环境变量 [b u]DEFAULT_ROM_FILE[/b u] 已存在: {os.getenv('DEFAULT_ROM_FILE')}, 要修改吗？[ y,N ]",
+                    end="",
+                )
+                ans = input()
+                if ans.lower() == "y":
+                    console.print(
+                        "[black on cyan bold] 输入环境变量 [b u]DEFAULT_ROM_FILE[/b u] 的值 [/black on cyan bold][cyan][/cyan]",
+                        end="",
+                    )
+                    context = input()
+                    set_key(ENV_PATH, "DEFAULT_ROM_FILE", context)
+                    load_dotenv(ENV_PATH, override=True)
+                    console.print("[b] 请重新启动本程序以更新。")
+                    return 0
+            else:
+                console.print(
+                    "[black on cyan bold] 输入环境变量 [b u]DEFAULT_ROM_FILE[/b u] 的值 [/black on cyan bold][cyan][/cyan]",
+                    end="",
+                )
+                context = input()
+                set_key(ENV_PATH, "DEFAULT_ROM_FILE", context)
+                load_dotenv(ENV_PATH, override=True)
+                console.print("[b] 请重新启动本程序以更新。")
+                return 0
+
+        elif idx == 7:
             return 0
 
 

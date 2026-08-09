@@ -202,6 +202,11 @@ def compiler(context):
                 if found is None:
                     console.print(f"[black on red] ERROR [/black on red] 行{line}: gadget '{name_body}' 未找到")
                     error_count += 1
+                elif not isinstance(found.get("addr"), str) or not re.match(
+                    r"^[0-9a-fA-F]*$", found.get("addr", "")
+                ):
+                    console.print(f"[black on red] ERROR [/black on red] 行{line}: gadget '{name_body}' 的地址非法")
+                    error_count += 1
                 else:
                     encoded = encode_gadget_addr(found.get("addr", ""), allow_00)
                     hex_chars += encoded

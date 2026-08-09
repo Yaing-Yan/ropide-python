@@ -75,6 +75,7 @@ The `compiler.compiler()` migration took 2 hours. Of that time, about 1.75 hours
 
 * Original RopIDE: Tieba user @wlyibo
   Web version: [https://ropide.pages.dev](https://ropide.pages.dev)
+* Emulator foundation: CasioEmuMsvc source project by Tieba user @噶么prince (the built-in emulator `u8emu_py` is a Python port of it)
 
 > 简体中文(SC)
 
@@ -141,3 +142,4 @@ python3 install_nvim_plugin.py
 ## 致谢
 
 - 原版 RopIDE：贴吧@wlyibo，网页版 https://ropide.pages.dev
+- 模拟器基础：贴吧@噶么prince 的 CasioEmuMsvc 源码项目（内置模拟器 `u8emu_py` 为其 Python 移植版）

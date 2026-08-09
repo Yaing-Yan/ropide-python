@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "u8emu-py"
+version = "0.1.0"
+description = "nX-U8/100 calculator emulator with curses TUI and braille LCD rendering (Python port of CasioEmuMsvc)"
+license = { text = "GPL-3.0-or-later" }
+requires-python = ">=3.9"
+authors = [{ name = "u8emu-py contributors" }]
+classifiers = [
+    "Environment :: Console :: Curses",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Emulators",
+]
+
+[project.scripts]
+u8emu = "u8emu.__main__:main"
+
+[tool.setuptools]
+packages = ["u8emu"]

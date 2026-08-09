@@ -29,9 +29,13 @@ build_one() {
   pyinstaller --noconfirm --clean --onefile --name "$name" --add-data "$data" "$name.py"
 }
 
+WIN_PY="C:\\Python312\\python.exe"
+# 项目运行时依赖（wine 内 Windows Python 需安装，否则打不进 exe）
+WIN_DEPS="webcolors python-dotenv pyperclip hexdump2 pick rich pygments requests"
+
 build_win_one() {
   local name="$1" data="$2"
-  wine "C:\\Python312\\python.exe" -m PyInstaller --noconfirm --clean --onefile \
+  wine "$WIN_PY" -m PyInstaller --noconfirm --clean --onefile \
     --name "$name" --add-data "$data" --distpath "dist\\windows-x86-64" "$name.py"
 }
 
@@ -50,6 +54,8 @@ if [[ $DO_WINDOWS -eq 1 ]]; then
   if ! command -v wine >/dev/null 2>&1 || [[ ! -f "$HOME/.wine/drive_c/Python312/python.exe" ]]; then
     echo "!! 跳过 Windows: 未找到 wine 或 wine 中未安装 Python (C:\\Python312)"
   else
+    echo "==> 安装/更新 Windows 构建依赖 (wine)"
+    wine "$WIN_PY" -m pip install $WIN_DEPS >/dev/null
     echo "==> 构建 Windows x86_64 (wine)"
     build_win_one main "gadgets;gadgets"
     build_win_one install_nvim_plugin "nvim;nvim"
