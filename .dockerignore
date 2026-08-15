@@ -1,0 +1,11 @@
+.git
+.github
+.venv
+.vev
+__pycache__
+**/__pycache__
+*.pyc
+build
+dist
+release-*
+*.zip

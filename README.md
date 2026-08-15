@@ -42,6 +42,22 @@ Compile a single file from the command line:
 python compiler.py path/to/file.rop
 ```
 
+## Build executables
+
+Build standalone executables for the **current platform** with `make`:
+
+```bash
+make                          # build both: dist/main + dist/install_nvim_plugin
+make main                     # build only main
+make install_nvim_plugin      # build only install_nvim_plugin
+make clean                    # remove build/ dist/ __pycache__
+make help                     # show help
+```
+
+`make` automatically installs PyInstaller and any missing third-party dependencies, then builds every root-level `*.spec` into `dist/`. Use a specific interpreter with `make PYTHON=python3.12`.
+
+> `build.sh` is still available for multi-platform releases (Linux x86-64/x86-32/arm64, Windows x86-64/x86-32 via Docker/Wine).
+
 ## Project Folder Structure
 
 ```
@@ -112,6 +128,22 @@ python main.py    # 找不到 python 就试 python3
 ```bash
 python compiler.py path/to/file.rop
 ```
+
+## 构建可执行文件
+
+用 `make` 为**当前平台**构建独立可执行文件：
+
+```bash
+make                          # 构建全部: dist/main + dist/install_nvim_plugin
+make main                     # 只构建 main
+make install_nvim_plugin      # 只构建 install_nvim_plugin
+make clean                    # 清理 build/ dist/ __pycache__
+make help                     # 查看帮助
+```
+
+`make` 会自动安装 PyInstaller 及缺失的第三方依赖，然后把根目录每个 `*.spec` 构建到 `dist/`。指定解释器：`make PYTHON=python3.12`。
+
+> 多平台发布仍可用 `build.sh`（Linux x86-64/x86-32/arm64、Windows x86-64/x86-32，走 Docker/Wine）。
 
 ## 项目文件夹构成
 

@@ -1,10 +1,11 @@
 from rich.console import Console
+from rich.markup import escape
 import webcolors
 from rich.table import Table
 from hexdump2 import hexdump
 from pathlib import Path
 from dotenv import load_dotenv, set_key
-from u8emu_py.u8emu.cnxemu import Cnxemu
+from CEM_API.cem import Emu
 
 import compiler, package, json
 import pyperclip as clip
@@ -18,6 +19,14 @@ BASE_URL = "https://ropide.pages.dev"  # 怎么颇有点调用AI模型的感觉
 items = None
 ENV_PATH = Path.home() / ".env"  # 统一使用这个路径
 load_dotenv(ENV_PATH, override=True)  # 强制覆盖系统变量
+
+
+def format_hex_string(s: str) -> str:
+    # 移除所有空白字符（包括空格、换行等）
+    hex_only = "".join(s.split())
+    # 每两个字符为一组（若奇数长度，最后一组会少一个字符）
+    pairs = [hex_only[i : i + 2].upper() for i in range(0, len(hex_only), 2)]
+    return " ".join(pairs)
 
 
 def _prompt_address(prompt: str, console: Console) -> str:
@@ -57,55 +66,29 @@ def _gadget_name_cell(gadget):
     return cell
 
 
-def _debug_emulator(leftaddr, hex_chars, linnes):
-    """实验性调试: 在模拟器中覆写 RAM 并启动。
-
-    未配置或配置了无效的 DEFAULT_ROM_FILE 时给出 WARN 并跳过, 不再静默失败。
-    """
-    console = Console()
-    rom = os.getenv("DEFAULT_ROM_FILE")
-    if not rom:
+def _configure_env_var(console: Console, key: str) -> bool:
+    """配置环境变量到 ~/.env，返回 True 表示已写入并需重启生效。"""
+    if os.getenv(key) is not None:
         console.print(
-            '[black on yellow] WARN [/black on yellow] 未配置[u b]DEFAULT_ROM_FILE[/u b]，无法调试。请先在菜单中选择"配置模拟器参数"。'
+            f"[black on yellow] WARN [/black on yellow] 环境变量 [b u]{key}[/b u] 已存在: {os.getenv(key)}, 要修改吗？[ y,N ]",
+            end="",
         )
-        return
-    try:
-        cnx = Cnxemu().load(rom)
-    except Exception:
-        console.print(
-            "[black on yellow] WARN [/black on yellow] 模拟器ROM文件无效，无法调试。请重新配置[u b]DEFAULT_ROM_FILE[/u b]。"
-        )
-        return
+        ans = input()
+        if ans.lower() != "y":
+            return False
     console.print(
-        f"[black on white] LOG [/black on white] 尝试覆写RAM，偏移量{leftaddr}。"
-    )
-    cnx.write(off=int(leftaddr, 16), byte=hex_chars)
-    console.print(
-        f"可能带有launcher信息的行：\n [yellow]{chr(10).join(linnes)}[/yellow]."
-        if linnes
-        else "未找到launcher相关信息"
-    )
-    console.print(
-        "[black on cyan bold] 输入launcher 的hex字符串（抄上面列出的launcher信息，如果没有就自己填写，e.g. FD 24 E9 E0 8F 23 42） [/black on cyan bold][cyan][/cyan]",
+        f"[black on cyan bold] 输入环境变量 [b u]{key}[/b u] 的值 [/black on cyan bold][cyan][/cyan]",
         end="",
     )
-    trulauncher = input()
-    cnx.press("POWER")
-    cnx.write(off=0xD180, byte=trulauncher)
-    cnx.press("left")
-
-    input("Press enter to open the emuthor...")
-    cnx.control(exit_key="q")
-    cnx.kill()
-
-
-def cmp(a, b):
-    pass
+    context = input()
+    set_key(ENV_PATH, key, context)
+    load_dotenv(ENV_PATH, override=True)
+    console.print("[b] 请重新启动本程序以更新。")
+    return True
 
 
 def main():
     console = Console()
-    console_table = Console(markup=False)
     console.print(
         "[black bold on cyan] 版本号 [/black bold on cyan] RopIDE-Python version-010826"
     )
@@ -120,18 +103,23 @@ def main():
     console.print(
         "[b]欢迎使用RopIDE[black on blue]Pyt[/black on blue][black on yellow]hon[/black on yellow]！\n[/b]本程序应与终端代码编辑器配合使用。本程序仅提供文件操作功能，无内置编辑器。"
     )
-
-    if os.getenv("DEFAULT_ROM_FILE") != None:
+    console.print("[black on white] LOG [/black on white] 测试模拟器。。。")
+    if os.getenv("DEFAULT_ROM_FILE") != None and os.getenv("DEFAULT_EMU_EXE") != None:
         try:
-            cnx = Cnxemu().load(os.getenv("DEFAULT_ROM_FILE"))
+            cnx = Emu(
+                os.getenv("DEFAULT_ROM_FILE"),
+                exe=os.getenv("DEFAULT_EMU_EXE"),
+                paused=False,
+                headless=True,
+            )
             cnx.kill()
         except:
             console.print(
-                '[black on yellow] WARN [/black on yellow] 模拟器ROM文件无效，或者是配置了错误的环境变量[u b]DEFAULT_ROM_FILE[/u b]。请尝试在菜单中选择"配置模拟器参数"以重新配置。'
+                '[black on yellow] WARN [/black on yellow] 模拟器ROM文件无效，或者是配置了错误的环境变量[u b]DEFAULT_ROM_FILE[/u b]，或者是模拟器进程过多。请尝试在菜单中选择"配置模拟器参数"以重新配置，或者关闭现有的模拟器进程。'
             )
     else:
         console.print(
-            '[black on yellow] WARN [/black on yellow] 环境变量[u b]DEFAULT_ROM_FILE[/u b]未配置。请尝试在菜单中选择"配置模拟器参数"以配置。'
+            f'[black on yellow] WARN [/black on yellow] 环境变量[u b]{"DEFAULT_ROM_FILE" if os.getenv("DEFAULT_ROM_FILE") == None else "DEFAULT_EMU_EXE"}[/u b]未配置。请尝试在菜单中选择"配置模拟器参数"以配置。'
         )
 
     while True:
@@ -335,10 +323,38 @@ def main():
                     console.print(
                         "[black on red] ERROR [/black on red] 复制失败：未找到可用的剪贴板工具（需要 xclip/xsel/pbcopy 等）。"
                     )
-            console.print("要调试吗，实验性功能[ y/N ]", end="")
+            console.print("要调试吗[Y/n]", end="")
             shouldebug = input()
-            if shouldebug.lower() == "y":
-                _debug_emulator(context["leftStartAddress"], opt["hex_chars"], linnes)
+            if shouldebug.lower() != "n":
+                console.print(
+                    "[black on white] LOG [/black on white] 尝试启动模拟器进程。"
+                )
+                cnx = Emu(
+                    os.getenv("DEFAULT_ROM_FILE"),
+                    exe=os.getenv("DEFAULT_EMU_EXE"),
+                    paused=False,
+                )
+                cnx.power_on()
+                console.print(
+                    f"[black on yellow] WARN [/black on yellow] 我们打算覆写RAM在偏移量0x{context['leftStartAddress']}，要继续吗？[Y,n]",
+                    end="",
+                )
+                ans = input()
+                if ans.lower() != "n":
+                    cnx.write(
+                        offset=int(context["leftStartAddress"], 16),
+                        byte=format_hex_string(opt["hex_chars"]),
+                    )
+                    console.print(
+                        "[black on cyan bold] 输入launcher（e.g. FD 24 E0 E9 8F 23 42，会注入到0xD180） [/black on cyan bold][cyan][/cyan]",
+                        end="",
+                    )
+                    launcher = input()
+                    cnx.write(offset=0xD180, byte=format_hex_string(launcher))
+                    cnx.press("left")
+                    console.print("请开始调试。Press enter to exit.")
+                    input()
+                    cnx.kill()
 
         elif idx == 2:
             console.print(f"[black on white] LOG [/black on white] 选择了 {optn}。")
@@ -466,10 +482,38 @@ def main():
                             console.print(
                                 "[black on red] ERROR [/black on red] 复制失败：未找到可用的剪贴板工具（需要 xclip/xsel/pbcopy 等）。"
                             )
-                    console.print("要调试吗，实验性功能[ y/N ]", end="")
+                    console.print("要调试吗[Y/n]", end="")
                     shouldebug = input()
-                    if shouldebug.lower() == "y":
-                        _debug_emulator(leftaddr, opt["hex_chars"], linnes)
+                    if shouldebug.lower() != "n":
+                        console.print(
+                            "[black on white] LOG [/black on white] 尝试启动模拟器进程。"
+                        )
+                        cnx = Emu(
+                            os.getenv("DEFAULT_ROM_FILE"),
+                            exe=os.getenv("DEFAULT_EMU_EXE"),
+                            paused=False,
+                        )
+                        cnx.power_on()
+                        console.print(
+                            f"[black on yellow] WARN [/black on yellow] 我们打算覆写RAM在偏移量0x{context['leftStartAddress']}，要继续吗？[Y,n]",
+                            end="",
+                        )
+                        ans = input()
+                        if ans.lower() != "n":
+                            cnx.write(
+                                offset=int(context["leftStartAddress"], 16),
+                                byte=format_hex_string(opt["hex_chars"]),
+                            )
+                            console.print(
+                                "[black on cyan bold] 输入launcher（e.g. FD 24 E0 E9 8F 23 42，会注入到0xD180） [/black on cyan bold][cyan][/cyan]",
+                                end="",
+                            )
+                            launcher = input()
+                            cnx.write(offset=0xD180, byte=format_hex_string(launcher))
+                            cnx.press("left")
+                            console.print("请开始调试。Press enter to exit.")
+                            input()
+                            cnx.kill()
 
                 elif ans.lower() == "l":
                     leftaddr = _prompt_address(
@@ -998,35 +1042,20 @@ def main():
                     break
 
         elif idx == 6:
-            if (
-                os.getenv("DEFAULT_ROM_FILE", "i seems don't have a value!")
-                != "i seems don't have a value!"
-            ):
+            while True:
                 console.print(
-                    f"[black on yellow] WARN [/black on yellow] 环境变量 [b u]DEFAULT_ROM_FILE[/b u] 已存在: {os.getenv('DEFAULT_ROM_FILE')}, 要修改吗？[ y,N ]",
+                    "[black on cyan bold] 配置模拟器参数：([u]R[/u]机型文件夹 [u]E[/u]MU模拟器程序 [u]q[/u]uit） [/black on cyan bold][cyan][/cyan]",
                     end="",
                 )
-                ans = input()
-                if ans.lower() == "y":
-                    console.print(
-                        "[black on cyan bold] 输入环境变量 [b u]DEFAULT_ROM_FILE[/b u] 的值 [/black on cyan bold][cyan][/cyan]",
-                        end="",
-                    )
-                    context = input()
-                    set_key(ENV_PATH, "DEFAULT_ROM_FILE", context)
-                    load_dotenv(ENV_PATH, override=True)
-                    console.print("[b] 请重新启动本程序以更新。")
-                    return 0
-            else:
-                console.print(
-                    "[black on cyan bold] 输入环境变量 [b u]DEFAULT_ROM_FILE[/b u] 的值 [/black on cyan bold][cyan][/cyan]",
-                    end="",
-                )
-                context = input()
-                set_key(ENV_PATH, "DEFAULT_ROM_FILE", context)
-                load_dotenv(ENV_PATH, override=True)
-                console.print("[b] 请重新启动本程序以更新。")
-                return 0
+                ans = input().lower()
+                if ans == "r":
+                    if _configure_env_var(console, "DEFAULT_ROM_FILE"):
+                        return 0
+                elif ans == "e":
+                    if _configure_env_var(console, "DEFAULT_EMU_EXE"):
+                        return 0
+                elif ans == "q":
+                    break
 
         elif idx == 7:
             return 0
@@ -1039,5 +1068,7 @@ if __name__ == "__main__":
         Console().print("\n[black on yellow] 已通过 Ctrl+C 退出。[/black on yellow]")
         sys.exit(130)
     except Exception as e:
-        Console().print(f"\n[black on red] ERROR [/black on red] 发生未预期的错误：{e}")
+        Console().print(
+            f"\n[black on red] ERROR [/black on red] 发生未预期的错误：{escape(str(e))}"
+        )
         raise
